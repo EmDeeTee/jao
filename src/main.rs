@@ -9,7 +9,11 @@ mod actions;
 #[command(arg_required_else_help = true)]
 struct Cli {
     #[arg(long, value_name = "FILE")]
+    #[arg(conflicts_with = "list")]
     fingerprint: Option<PathBuf>,
+
+    #[arg(long)]
+    list: bool,
 }
 
 fn main() {
@@ -25,6 +29,13 @@ fn run_cli() -> std::io::Result<()> {
     if let Some(file_path) = cli.fingerprint {
         let hash = actions::fingerprint(file_path)?;
         println!("{hash}");
+    }
+
+    if cli.list {
+        let cwd = std::env::current_dir()?;
+        for script_path in actions::list_scripts(cwd) {
+            println!("{}", script_path.display());
+        }
     }
 
     Ok(())
