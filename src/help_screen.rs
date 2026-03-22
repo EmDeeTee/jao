@@ -7,9 +7,7 @@ const GREEN: &str = "\x1b[32m";
 const RESET: &str = "\x1b[0m";
 
 pub fn print_help() {
-    let styled = should_style();
-
-    if styled {
+    if should_style() {
         println!("{BOLD}{CYAN}jao - discover, inspect, and run workspace scripts{RESET}");
         line("  Finds platform scripts recursively and executes them from their own directory.");
         println!();
@@ -21,7 +19,10 @@ pub fn print_help() {
 
         section("OPTIONS");
         option("  -h, --help", "Show this help screen");
-        option("      --list", "List runnable scripts discovered from the current directory downward");
+        option(
+            "      --list",
+            "List runnable scripts discovered from the current directory downward",
+        );
         option(
             "      --fingerprint <FILE>",
             "Print SHA-256 of canonical file path + file contents",
@@ -47,7 +48,9 @@ pub fn print_help() {
         line("    Run deploy.api.prod.sh / .bat if found.");
     } else {
         println!("jao - discover, inspect, and run workspace scripts");
-        println!("  Finds platform scripts recursively and executes them from their own directory.");
+        println!(
+            "  Finds platform scripts recursively and executes them from their own directory."
+        );
         println!();
         println!("USAGE:");
         println!("  jao --list");
@@ -56,14 +59,20 @@ pub fn print_help() {
         println!();
         println!("OPTIONS:");
         println!("  -h, --help                Show this help screen");
-        println!("      --list                List runnable scripts discovered from the current directory downward");
-        println!("      --fingerprint <FILE>  Print SHA-256 of canonical file path + file contents");
+        println!(
+            "      --list                List runnable scripts discovered from the current directory downward"
+        );
+        println!(
+            "      --fingerprint <FILE>  Print SHA-256 of canonical file path + file contents"
+        );
         println!("  -V, --version             Print version");
         println!();
         println!("SCRIPT COMMAND INPUT:");
         println!("  Positional parts are joined with '.' to form the script base name.");
         println!("  Example: jao deploy api prod  -> base name deploy.api.prod");
-        println!("  Matching extension is chosen by OS: .sh on Unix-like systems, .bat on Windows.");
+        println!(
+            "  Matching extension is chosen by OS: .sh on Unix-like systems, .bat on Windows."
+        );
         println!("  The script runs with working directory set to the script's folder.");
         println!();
         println!("EXAMPLES:");
