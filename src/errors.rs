@@ -7,6 +7,9 @@ pub type ActionResult<T> = Result<T, ActionError>;
 #[derive(Debug, Error)]
 pub enum ActionError {
     #[error(transparent)]
+    Cli(#[from] clap::Error),
+
+    #[error(transparent)]
     Io(#[from] std::io::Error),
 
     #[error("script {script_name} not found")]
