@@ -1,6 +1,8 @@
 use clap::{Parser, error::ErrorKind};
 use std::path::PathBuf;
 
+use crate::errors::ActionError;
+
 mod actions;
 mod errors;
 mod help_screen;
@@ -12,10 +14,10 @@ mod script_discovery;
 #[command(about = "Discover and run workspace scripts")]
 #[command(arg_required_else_help = true)]
 struct Cli {
-    /// Print SHA-256 fingerprint of canonical path + file contents.
-    #[arg(long, value_name = "FILE")]
+    /// Resolve script command and print SHA-256 of canonical path + file contents.
+    #[arg(long, value_name = "SCRIPT_COMMAND", num_args = 1..)]
     #[arg(conflicts_with_all = ["list", "script_command"])]
-    fingerprint: Option<PathBuf>,
+    fingerprint: Option<Vec<String>>,
 
     /// List discovered scripts for this OS
     #[arg(long, conflicts_with = "script_command")]
@@ -27,51 +29,53 @@ struct Cli {
 }
 
 fn main() {
-    if let Err(err) = run_cli() {
-        match err {
-            errors::ActionError::Cli(clap_err) => {
-                let _ = clap_err.print();
-                std::process::exit(clap_err.exit_code());
-            }
-            other => {
-                eprintln!("error: {other}");
+    match Cli::try_parse() {
+        Ok(cli) => {
+            if let Err(err) = run_cli(cli) {
+                eprintln!("error: {err}");
                 std::process::exit(1);
             }
         }
-    }
-}
-
-fn run_cli() -> errors::ActionResult<()> {
-    let cli = match Cli::try_parse() {
-        Ok(cli) => cli,
         Err(err) => match err.kind() {
             ErrorKind::DisplayHelp | ErrorKind::DisplayHelpOnMissingArgumentOrSubcommand => {
                 help_screen::print_help();
-                return Ok(());
             }
-            ErrorKind::DisplayVersion => {
+            _ => {
                 let _ = err.print();
-                return Ok(());
+                std::process::exit(err.exit_code());
             }
-            _ => return Err(err.into()),
         },
     };
+}
 
-    if let Some(file_path) = cli.fingerprint {
-        let hash = actions::fingerprint(file_path)?;
-        println!("{hash}");
+fn run_cli(cli: Cli) -> errors::ActionResult<()> {
+    let cwd = std::env::current_dir()?;
+
+    enum CommandAction {
+        List,
+        Fingerprint(PathBuf),
+        Run(PathBuf),
+        NoOp,
     }
 
-    if cli.list {
-        let cwd = std::env::current_dir()?;
-        for script_path in actions::list_scripts(cwd) {
-            println!("{}", script_path.display());
-        }
-    }
+    let resolve = |parts: Vec<String>| {
+        script_discovery::resolve_script(&cwd, &parts).ok_or_else(|| ActionError::ScriptNotFound {
+            script_name: parts.join("."),
+        })
+    };
 
-    if !cli.script_command.is_empty() {
-        let cwd = std::env::current_dir()?;
-        actions::run_script(&cli.script_command, cwd)?;
+    let action = match (cli.list, cli.fingerprint, cli.script_command) {
+        (true, _, _) => CommandAction::List,
+        (false, Some(parts), _) => CommandAction::Fingerprint(resolve(parts)?),
+        (false, None, parts) if !parts.is_empty() => CommandAction::Run(resolve(parts)?),
+        _ => CommandAction::NoOp,
+    };
+
+    match action {
+        CommandAction::List => actions::list_scripts_in(&cwd)?,
+        CommandAction::Fingerprint(script_path) => actions::fingerprint_script(script_path)?,
+        CommandAction::Run(script_path) => actions::run_script(script_path)?,
+        CommandAction::NoOp => {}
     }
 
     Ok(())

@@ -1,10 +1,10 @@
 use crate::errors::ActionResult;
 use sha2::{Digest, Sha256};
 use std::fs;
-use std::path::PathBuf;
+use std::path::Path;
 
-pub fn fingerprint(path: PathBuf) -> ActionResult<String> {
-    let canonical_path = fs::canonicalize(&path)?;
+fn fingerprint_file(path: impl AsRef<Path>) -> ActionResult<String> {
+    let canonical_path = fs::canonicalize(path)?;
     let file_contents = fs::read(&canonical_path)?;
 
     let mut hasher = Sha256::new();
@@ -14,4 +14,12 @@ pub fn fingerprint(path: PathBuf) -> ActionResult<String> {
     hasher.update(file_contents);
 
     Ok(format!("{:x}", hasher.finalize()))
+}
+
+pub fn fingerprint_script(script_path: impl AsRef<Path>) -> ActionResult<()> {
+    let fingerprint = fingerprint_file(script_path)?;
+
+    println!("{fingerprint}");
+
+    Ok(())
 }

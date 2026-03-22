@@ -1,6 +1,12 @@
-use crate::script_discovery;
-use std::path::PathBuf;
+use std::path::Path;
 
-pub fn list_scripts(root: PathBuf) -> impl Iterator<Item = PathBuf> {
-    script_discovery::list_scripts(root)
+use crate::errors::ActionResult;
+use crate::script_discovery;
+
+pub fn list_scripts_in(root: impl AsRef<Path>) -> ActionResult<()> {
+    for script_path in script_discovery::enumerate_scripts_in(root) {
+        println!("{}", script_path.display());
+    }
+
+    Ok(())
 }

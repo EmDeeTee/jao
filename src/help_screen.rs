@@ -13,7 +13,7 @@ pub fn print_help() {
         println!();
         section("USAGE");
         line("  jao --list");
-        line("  jao --fingerprint <FILE>");
+        line("  jao --fingerprint <SCRIPT_COMMAND_PART>...");
         line("  jao <SCRIPT_COMMAND_PART>...");
         println!();
 
@@ -24,8 +24,8 @@ pub fn print_help() {
             "List runnable scripts discovered from the current directory downward",
         );
         option(
-            "      --fingerprint <FILE>",
-            "Print SHA-256 of canonical file path + file contents",
+            "      --fingerprint <SCRIPT_COMMAND_PART>...",
+            "Resolve a script command, then print SHA-256 of canonical path + file contents",
         );
         option("  -V, --version", "Print version");
         println!();
@@ -40,8 +40,8 @@ pub fn print_help() {
         section("EXAMPLES");
         example("  jao --list");
         line("    Show all discovered runnable scripts.");
-        example("  jao --fingerprint ./scripts/build.sh");
-        line("    Produce a stable fingerprint for file identity + content.");
+        example("  jao --fingerprint deploy api prod");
+        line("    Resolve deploy.api.prod.sh/.bat, then fingerprint that script file.");
         example("  jao test");
         line("    Run test.sh / test.bat if found.");
         example("  jao deploy api prod");
@@ -54,7 +54,7 @@ pub fn print_help() {
         println!();
         println!("USAGE:");
         println!("  jao --list");
-        println!("  jao --fingerprint <FILE>");
+        println!("  jao --fingerprint <SCRIPT_COMMAND_PART>...");
         println!("  jao <SCRIPT_COMMAND_PART>...");
         println!();
         println!("OPTIONS:");
@@ -63,7 +63,7 @@ pub fn print_help() {
             "      --list                List runnable scripts discovered from the current directory downward"
         );
         println!(
-            "      --fingerprint <FILE>  Print SHA-256 of canonical file path + file contents"
+            "      --fingerprint <SCRIPT_COMMAND_PART>...  Resolve a script command, then print SHA-256 of canonical path + file contents"
         );
         println!("  -V, --version             Print version");
         println!();
@@ -78,8 +78,8 @@ pub fn print_help() {
         println!("EXAMPLES:");
         println!("  jao --list");
         println!("    Show all discovered runnable scripts.");
-        println!("  jao --fingerprint ./scripts/build.sh");
-        println!("    Produce a stable fingerprint for file identity + content.");
+        println!("  jao --fingerprint deploy api prod");
+        println!("    Resolve deploy.api.prod.sh/.bat, then fingerprint that script file.");
         println!("  jao test");
         println!("    Run test.sh / test.bat if found.");
         println!("  jao deploy api prod");

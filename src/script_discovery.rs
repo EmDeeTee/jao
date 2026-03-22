@@ -3,7 +3,7 @@ use std::ffi::OsStr;
 use std::path::Path;
 use std::path::PathBuf;
 
-pub fn list_scripts(root: impl AsRef<Path>) -> impl Iterator<Item = PathBuf> {
+pub fn enumerate_scripts_in(root: impl AsRef<Path>) -> impl Iterator<Item = PathBuf> {
     WalkDir::new(root)
         .into_iter()
         .filter_map(Result::ok)
@@ -18,19 +18,21 @@ pub fn list_scripts(root: impl AsRef<Path>) -> impl Iterator<Item = PathBuf> {
         })
 }
 
-pub fn find_script_by_name(root: &Path, script_name: &str) -> Option<PathBuf> {
-    list_scripts(root).find(|path| {
-        path.file_stem()
-            .is_some_and(|file_stem| is_script_match(file_stem, script_name))
-    })
-}
-
-pub fn is_supported_script_extension(ext: &str) -> bool {
+fn is_supported_script_extension(ext: &str) -> bool {
     if cfg!(windows) {
         ext.eq_ignore_ascii_case("bat")
     } else {
         ext.eq_ignore_ascii_case("sh")
     }
+}
+
+pub fn resolve_script(root: impl AsRef<Path>, parts: &[String]) -> Option<PathBuf> {
+    let script_name = parts.join(".");
+
+    enumerate_scripts_in(root).find(|path| {
+        path.file_stem()
+            .is_some_and(|file_stem| is_script_match(file_stem, &script_name))
+    })
 }
 
 fn is_script_match(file_stem: &OsStr, script_name: &str) -> bool {

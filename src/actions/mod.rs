@@ -2,6 +2,6 @@ mod fingerprint;
 mod list;
 mod run;
 
-pub use fingerprint::fingerprint;
-pub use list::list_scripts;
+pub use fingerprint::fingerprint_script;
+pub use list::list_scripts_in;
 pub use run::run_script;
