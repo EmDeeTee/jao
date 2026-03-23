@@ -6,18 +6,22 @@ pub type JaoResult<T> = Result<T, JaoError>;
 
 #[derive(Debug, Error)]
 pub enum JaoError {
+    #[cfg(feature = "config")]
     #[error("unable to determine user storage directory")]
     StorageDirUnavailable,
 
     #[error(transparent)]
     Io(#[from] std::io::Error),
 
+    #[cfg(feature = "config")]
     #[error(transparent)]
     TomlDeserialize(#[from] toml::de::Error),
 
+    #[cfg(feature = "config")]
     #[error(transparent)]
     TomlSerialize(#[from] toml::ser::Error),
 
+    #[cfg(feature = "config")]
     #[error("invalid trustfile path: {path}")]
     InvalidTrustfilePath { path: PathBuf },
 
@@ -33,22 +37,24 @@ pub enum JaoError {
     #[error("script exited with status {status}")]
     ScriptFailed { status: ExitStatus },
 
+    #[cfg(feature = "trust-manifest")]
     #[error("unknown script trust requires interactive confirmation: {path}")]
     UnknownScriptNonInteractive { path: PathBuf },
 
     #[error("--ci run requires --require-fingerprint <FINGERPRINT>")]
     CiRunRequiresFingerprint,
 
+    #[cfg(not(feature = "trust-manifest"))]
+    #[error("run requires --require-fingerprint <FINGERPRINT> when built without trust-manifest feature")]
+    RunWithoutTrustManifestRequiresFingerprint,
+
     #[error("invalid --require-fingerprint value (expected 64 hex chars): {fingerprint}")]
     InvalidRequiredFingerprint { fingerprint: String },
 
     #[error("fingerprint mismatch for {path}: expected {expected}, got {actual}")]
-    FingerprintMismatch {
-        path: PathBuf,
-        expected: String,
-        actual: String,
-    },
+    FingerprintMismatch { path: PathBuf, expected: String, actual: String },
 
+    #[cfg(feature = "trust-manifest")]
     #[error("script was not trusted by user: {path}")]
     ScriptNotTrusted { path: PathBuf },
 }

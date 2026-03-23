@@ -24,9 +24,7 @@ pub struct JaoConfig {
 
 impl From<JaoConfigFile> for JaoConfig {
     fn from(config: JaoConfigFile) -> Self {
-        Self {
-            trustfile: config.trustfile,
-        }
+        Self { trustfile: config.trustfile }
     }
 }
 
@@ -65,9 +63,7 @@ pub struct TrustedManifest {
 }
 
 pub fn load_or_init() -> JaoResult<JaoContext> {
-    let storage_dir = home_dir()
-        .ok_or(JaoError::StorageDirUnavailable)?
-        .join(".jao");
+    let storage_dir = home_dir().ok_or(JaoError::StorageDirUnavailable)?.join(".jao");
 
     fs::create_dir_all(&storage_dir)?;
 
@@ -81,8 +77,7 @@ pub fn load_or_init() -> JaoResult<JaoContext> {
         default_config
     };
 
-    let normalized_trustfile =
-        normalize_trustfile_path(&storage_dir, config_file.trustfile.clone())?;
+    let normalized_trustfile = normalize_trustfile_path(&storage_dir, config_file.trustfile.clone())?;
     let trustfile_changed = normalized_trustfile != config_file.trustfile;
     config_file.trustfile = normalized_trustfile;
 
@@ -95,10 +90,7 @@ pub fn load_or_init() -> JaoResult<JaoContext> {
 
     let trusted_manifest = load_or_init_trusted_manifest(&config)?;
 
-    Ok(JaoContext {
-        config,
-        trusted_manifest,
-    })
+    Ok(JaoContext { config, trusted_manifest })
 }
 
 pub fn load_or_init_trusted_manifest(config: &JaoConfig) -> JaoResult<TrustedManifest> {
@@ -150,13 +142,8 @@ pub fn write_manifest(path: &Path, manifest: &TrustedManifest) -> JaoResult<()> 
 fn normalize_trustfile_path(storage_dir: &Path, configured_path: PathBuf) -> JaoResult<PathBuf> {
     let storage_dir = fs::canonicalize(storage_dir)?;
 
-    if configured_path
-        .components()
-        .any(|component| matches!(component, Component::ParentDir))
-    {
-        return Err(JaoError::InvalidTrustfilePath {
-            path: configured_path,
-        });
+    if configured_path.components().any(|component| matches!(component, Component::ParentDir)) {
+        return Err(JaoError::InvalidTrustfilePath { path: configured_path });
     }
 
     let candidate = if configured_path.is_absolute() {
@@ -167,9 +154,7 @@ fn normalize_trustfile_path(storage_dir: &Path, configured_path: PathBuf) -> Jao
 
     let parent = candidate
         .parent()
-        .ok_or_else(|| JaoError::InvalidTrustfilePath {
-            path: candidate.clone(),
-        })?;
+        .ok_or_else(|| JaoError::InvalidTrustfilePath { path: candidate.clone() })?;
 
     fs::create_dir_all(parent)?;
 
@@ -180,9 +165,7 @@ fn normalize_trustfile_path(storage_dir: &Path, configured_path: PathBuf) -> Jao
 
     let file_name = candidate
         .file_name()
-        .ok_or_else(|| JaoError::InvalidTrustfilePath {
-            path: candidate.clone(),
-        })?;
+        .ok_or_else(|| JaoError::InvalidTrustfilePath { path: candidate.clone() })?;
 
     Ok(canonical_parent.join(file_name))
 }

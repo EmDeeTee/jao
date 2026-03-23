@@ -3,11 +3,16 @@ name = "jao"
 version = "0.2.0"
 edition = "2024"
 
+[features]
+default = ["trust-manifest"]
+trust-manifest = ["config"]
+config = ["dep:home", "dep:serde", "dep:toml"]
+
 [dependencies]
 clap = { version = "4.6.0", features = ["derive"] }
-home = "0.5"
+home = { version = "0.5", optional = true }
 jwalk = "0.8"
-serde = { version = "1", features = ["derive"] }
+serde = { version = "1", features = ["derive"], optional = true }
 sha2 = "0.10"
 thiserror = "2"
-toml = "1"
+toml = { version = "1", optional = true }
