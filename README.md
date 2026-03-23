@@ -117,6 +117,12 @@ Or run it directly during development:
 cargo run -- --list
 ```
 
+## License
+
+`jao` is licensed under Apache-2.0.
+
+If you redistribute it or ship a derivative, keep the license and notice text in place. If you improve it, upstream PRs are preferred.
+
 ## Good Fit
 
 `jao` is a good fit if:
