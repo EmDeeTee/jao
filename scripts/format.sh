@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "hello world!"
+cargo fmt --manifest-path ../Cargo.toml
