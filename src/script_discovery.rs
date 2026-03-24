@@ -7,7 +7,7 @@ use jwalk::WalkDir;
 
 use crate::error::{JaoError, JaoResult};
 
-pub fn enumerate_scripts_in(root: impl AsRef<Path>) -> impl Iterator<Item = PathBuf> {
+pub(crate) fn enumerate_scripts_in(root: impl AsRef<Path>) -> impl Iterator<Item = PathBuf> {
     WalkDir::new(root)
         .into_iter()
         .filter_map(Result::ok)
@@ -25,7 +25,7 @@ fn is_supported_script_extension(ext: &str) -> bool {
     return ext.eq_ignore_ascii_case("sh");
 }
 
-pub fn resolve_script(root: impl AsRef<Path>, parts: &[String]) -> JaoResult<PathBuf> {
+pub(crate) fn resolve_script(root: impl AsRef<Path>, parts: &[String]) -> JaoResult<PathBuf> {
     let script_name = parts.join(".");
     enumerate_scripts_in(root)
         .find(|path| path.file_stem().is_some_and(|file_stem| is_script_name_match(file_stem, &script_name)))

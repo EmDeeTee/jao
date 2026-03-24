@@ -6,9 +6,9 @@ use serde::{Deserialize, Serialize};
 use super::JaoConfigFile;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct JaoConfig {
+pub(crate) struct JaoConfig {
     #[cfg(feature = "trust-manifest")]
-    pub trustfile: PathBuf,
+    pub(crate) trustfile: PathBuf,
 }
 
 impl From<JaoConfigFile> for JaoConfig {

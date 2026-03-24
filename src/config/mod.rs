@@ -10,7 +10,7 @@ use crate::error::{JaoError, JaoResult};
 #[cfg(feature = "trust-manifest")]
 use crate::trust;
 
-pub mod models;
+pub(crate) mod models;
 
 mod persistence;
 
@@ -20,7 +20,7 @@ const CURRENT_CONFIG_VERSION: u32 = 1;
 // For now unused if config feature is on but trust-manifest feature is off,
 // since trust-manifest is the only thing that uses the config
 #[allow(dead_code)]
-pub fn load_or_init() -> JaoResult<JaoContext> {
+pub(crate) fn load_or_init() -> JaoResult<JaoContext> {
     let storage_dir = home_dir().ok_or(JaoError::StorageDirUnavailable)?.join(".jao");
 
     fs::create_dir_all(&storage_dir)?;

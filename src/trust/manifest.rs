@@ -5,7 +5,7 @@ use crate::error::JaoResult;
 use crate::trust::models::{ScriptTrustState, TrustedFileRecord, TrustedManifest};
 use crate::trust::{fingerprint, persistence};
 
-pub fn get_script_trust(script_path: impl AsRef<Path>, manifest: &TrustedManifest) -> JaoResult<ScriptTrustState> {
+pub(crate) fn get_script_trust(script_path: impl AsRef<Path>, manifest: &TrustedManifest) -> JaoResult<ScriptTrustState> {
     let (key, record) = build_trusted_record_for_file(script_path.as_ref())?;
 
     match manifest.scripts.get(&key) {
@@ -15,7 +15,7 @@ pub fn get_script_trust(script_path: impl AsRef<Path>, manifest: &TrustedManifes
     }
 }
 
-pub fn write_script_trust_record(script_path: impl AsRef<Path>, context: &mut JaoContext) -> JaoResult<()> {
+pub(crate) fn write_script_trust_record(script_path: impl AsRef<Path>, context: &mut JaoContext) -> JaoResult<()> {
     let (key, record) = build_trusted_record_for_file(script_path.as_ref())?;
     context.trusted_manifest.scripts.insert(key, record);
     persistence::write_manifest(&context.config.trustfile, &context.trusted_manifest)

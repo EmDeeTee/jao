@@ -11,8 +11,8 @@ mod trusted_file_record;
 mod trusted_manifest;
 
 #[cfg(feature = "trust-manifest")]
-pub use script_trust_state::ScriptTrustState;
+pub(crate) use script_trust_state::ScriptTrustState;
 #[cfg(feature = "trust-manifest")]
-pub use trusted_file_record::TrustedFileRecord;
+pub(crate) use trusted_file_record::TrustedFileRecord;
 #[cfg(feature = "trust-manifest")]
-pub use trusted_manifest::TrustedManifest;
+pub(crate) use trusted_manifest::TrustedManifest;

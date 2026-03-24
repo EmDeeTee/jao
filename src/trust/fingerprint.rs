@@ -19,7 +19,7 @@ use crate::error::JaoResult;
 ///
 /// The returned tuple contains the canonical path that was hashed and the
 /// hexadecimal digest string.
-pub fn fingerprint_file(path: impl AsRef<Path>) -> JaoResult<(PathBuf, String)> {
+pub(crate) fn fingerprint_file(path: impl AsRef<Path>) -> JaoResult<(PathBuf, String)> {
     let canonical_path = std::fs::canonicalize(path)?;
     let file_contents = std::fs::read(&canonical_path)?;
 

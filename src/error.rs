@@ -3,10 +3,10 @@ use std::process::ExitStatus;
 
 use thiserror::Error;
 
-pub type JaoResult<T> = Result<T, JaoError>;
+pub(crate) type JaoResult<T> = Result<T, JaoError>;
 
 #[derive(Debug, Error)]
-pub enum JaoError {
+pub(crate) enum JaoError {
     #[cfg(feature = "config")]
     #[error("unable to determine user storage directory")]
     StorageDirUnavailable,

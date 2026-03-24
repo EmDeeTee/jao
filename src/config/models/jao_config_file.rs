@@ -16,7 +16,7 @@ fn default_trustfile() -> std::path::PathBuf {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct JaoConfigFile {
+pub(crate) struct JaoConfigFile {
     #[serde(default = "default_config_version")]
     pub(crate) version: u32,
 

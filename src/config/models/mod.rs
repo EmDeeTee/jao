@@ -2,6 +2,6 @@ mod jao_config;
 mod jao_config_file;
 mod jao_context;
 
-pub use jao_config::JaoConfig;
-pub use jao_config_file::JaoConfigFile;
-pub use jao_context::JaoContext;
+pub(crate) use jao_config::JaoConfig;
+pub(crate) use jao_config_file::JaoConfigFile;
+pub(crate) use jao_context::JaoContext;

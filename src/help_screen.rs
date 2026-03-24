@@ -14,7 +14,7 @@ const RESET: &str = "\x1b[0m";
 const OPTION_COL_WIDTH: usize = 28;
 const OPTION_DESC_INDENT: &str = "                              ";
 
-pub fn print_help() {
+pub(crate) fn print_help() {
     if should_style() {
         println!("{BOLD}{CYAN}jao - discover, inspect, and run workspace scripts{RESET}");
         line("  Finds platform scripts recursively and executes them from their own directory.");

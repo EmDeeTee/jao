@@ -23,9 +23,9 @@ use super::TrustedFileRecord;
 /// - matching entry: the script is `trusted`
 /// - differing entry: the script is `modified`
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
-pub struct TrustedManifest {
+pub(crate) struct TrustedManifest {
     /// Mapping from canonical script path to the last trusted fingerprint
     /// record for that path.
     #[serde(flatten)]
-    pub scripts: BTreeMap<String, TrustedFileRecord>,
+    pub(crate) scripts: BTreeMap<String, TrustedFileRecord>,
 }

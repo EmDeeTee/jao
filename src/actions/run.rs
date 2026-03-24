@@ -11,7 +11,7 @@ use crate::trust;
 use crate::trust::models::ScriptTrustState;
 
 #[cfg(feature = "trust-manifest")]
-pub fn run_script_with_trust(script_path: impl AsRef<Path>, context: &mut JaoContext) -> JaoResult<()> {
+pub(crate) fn run_script_with_trust(script_path: impl AsRef<Path>, context: &mut JaoContext) -> JaoResult<()> {
     let canonical_path = std::fs::canonicalize(&script_path)?;
 
     let trust_state = trust::manifest::get_script_trust(&canonical_path, &context.trusted_manifest)?;
@@ -49,7 +49,7 @@ pub fn run_script_with_trust(script_path: impl AsRef<Path>, context: &mut JaoCon
     execute_script(script_path)
 }
 
-pub fn run_script_with_fingerprint(script_path: impl AsRef<Path>, required_fingerprint: &str) -> JaoResult<()> {
+pub(crate) fn run_script_with_fingerprint(script_path: impl AsRef<Path>, required_fingerprint: &str) -> JaoResult<()> {
     let required_fingerprint = normalize_required_fingerprint(required_fingerprint)?;
 
     let (canonical_path, actual_fingerprint) = trust::fingerprint::fingerprint_file(&script_path)?;

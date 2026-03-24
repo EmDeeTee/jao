@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 /// separate struct so the manifest format can grow later without changing the
 /// top-level map shape.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct TrustedFileRecord {
+pub(crate) struct TrustedFileRecord {
     /// SHA-256 fingerprint of the trusted script at the time it was approved.
-    pub fingerprint: String,
+    pub(crate) fingerprint: String,
 }

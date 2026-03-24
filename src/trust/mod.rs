@@ -13,9 +13,9 @@
 //! In normal CLI usage these details are mostly internal, but documenting them
 //! makes the trust behavior auditable and predictable.
 
-pub mod fingerprint;
+pub(crate) mod fingerprint;
 #[cfg(feature = "trust-manifest")]
-pub mod manifest;
-pub mod models;
+pub(crate) mod manifest;
+pub(crate) mod models;
 #[cfg(feature = "trust-manifest")]
 pub(crate) mod persistence;
