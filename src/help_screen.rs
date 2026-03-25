@@ -48,6 +48,7 @@ pub(crate) fn print_help() {
         section("SCRIPT COMMAND INPUT");
         line("  Script file stems still use '.' as command separators.");
         line("  Directories contribute command parts only when they contain a .jaofolder marker.");
+        line("  .jaoignore files are applied recursively and exclude matching directories and scripts.");
         line("  Example: myapp/backend/scripts/build.sh becomes:");
         line("    jao myapp backend build from the workspace root if myapp/ and backend/ are marked");
         line("    jao backend build from inside myapp/");
@@ -131,6 +132,7 @@ pub(crate) fn print_help() {
         println!("SCRIPT COMMAND INPUT:");
         println!("  Script file stems still use '.' as command separators.");
         println!("  Directories contribute command parts only when they contain a .jaofolder marker.");
+        println!("  .jaoignore files are applied recursively and exclude matching directories and scripts.");
         println!("  Example: myapp/backend/scripts/build.sh becomes:");
         println!("    jao myapp backend build from the workspace root if myapp/ and backend/ are marked");
         println!("    jao backend build from inside myapp/");

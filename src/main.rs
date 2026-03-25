@@ -9,6 +9,7 @@
 //!   scripts on Windows
 //! - Resolves a command like `jao deploy api prod` to a script selected by
 //!   `.jaofolder` path markers plus the script file stem
+//! - Honors recursive `.jaoignore` files to skip ignored scripts and directories
 //! - Runs the script from the script's own directory
 //! - Supports SHA-256 fingerprint checks for CI-safe execution
 //! - Optionally keeps a local trust manifest for interactive runs
@@ -74,6 +75,7 @@ use std::process::ExitStatus;
 
 use clap::Parser;
 use clap::error::ErrorKind;
+use ignore::Error as IgnoreError;
 use thiserror::Error;
 
 mod actions;
@@ -125,6 +127,9 @@ enum JaoError {
 
     #[error(transparent)]
     Io(#[from] std::io::Error),
+
+    #[error(transparent)]
+    Ignore(#[from] IgnoreError),
 
     #[cfg(feature = "config")]
     #[error(transparent)]

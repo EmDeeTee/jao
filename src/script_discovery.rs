@@ -22,11 +22,12 @@ use std::ffi::OsStr;
 use std::ops::ControlFlow;
 use std::path::{Path, PathBuf};
 
-use jwalk::{DirEntry, WalkDir};
+use ignore::{DirEntry, Walk, WalkBuilder};
 
 use crate::{JaoError, JaoResult};
 
 const FOLDER_MARKER_FILE: &str = ".jaofolder";
+const IGNORE_FILE: &str = ".jaoignore";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct DiscoveredScript<'a> {
@@ -54,13 +55,14 @@ pub(crate) fn for_each_discovered_script<B>(
 ) -> JaoResult<ControlFlow<B>> {
     let root = root.as_ref();
 
-    for entry in WalkDir::new(root).into_iter().filter_map(Result::ok) {
+    for entry in build_walk_dir(root) {
+        let entry = entry?;
+
         if !is_script(&entry) {
             continue;
         }
 
-        let path = entry.path();
-        let Some(script) = into_discovered_script(root, &path) else {
+        let Some(script) = into_discovered_script(root, entry.path()) else {
             continue;
         };
 
@@ -72,8 +74,16 @@ pub(crate) fn for_each_discovered_script<B>(
     Ok(ControlFlow::Continue(()))
 }
 
-fn is_script(dir_entry: &DirEntry<((), ())>) -> bool {
-    dir_entry.file_type().is_file() && Path::new(dir_entry.file_name()).extension().is_some_and(is_supported_script_extension)
+fn build_walk_dir(root: &Path) -> Walk {
+    WalkBuilder::new(root)
+        .standard_filters(true)
+        .add_custom_ignore_filename(IGNORE_FILE)
+        .build()
+}
+
+fn is_script(dir_entry: &DirEntry) -> bool {
+    dir_entry.file_type().is_some_and(|file_type| file_type.is_file())
+        && Path::new(dir_entry.file_name()).extension().is_some_and(is_supported_script_extension)
 }
 
 fn is_supported_script_extension(ext: &OsStr) -> bool {

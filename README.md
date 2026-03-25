@@ -17,6 +17,7 @@ and thought "I just want to run the thing, not maintain another task runner", th
 - Recursive script discovery from the directory you run it in
 - A simple command style: `jao deploy api prod`
 - Optional `.jaofolder` markers to expose directory names as command prefixes
+- Optional `.jaoignore` rules to exclude scripts and directories from discovery
 - Cross-platform matching: `.sh` on Unix, `.bat` on Windows
 - Script fingerprinting for CI or locked-down runs
 - Trust tracking for local interactive use
@@ -63,6 +64,16 @@ run `jao`:
 
 Directories without `.jaofolder` stay invisible, so folders like `scripts/`
 can keep organizing files without polluting the command name.
+
+### Ignore Rules
+
+`.jaoignore` files are applied recursively like `.gitignore` files during
+discovery.
+
+- ignored directories are not descended into
+- ignored scripts do not appear in `jao --list`
+- ignored scripts cannot be resolved or run
+- more nested `.jaoignore` files override less nested ones
 
 ## Common Commands
 
