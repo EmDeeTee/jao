@@ -4,6 +4,10 @@
 
 It is meant for repos that already have shell or batch scripts and want a thin CLI on top, not a bigger task runner.
 
+## Installation
+
+Just run `cargo install jao` ;)
+
 ## What It Does
 
 - Finds runnable scripts under the directory you start from
@@ -141,7 +145,7 @@ For local interactive use, `jao` keeps a trust manifest under `~/.jao/`:
 - unknown scripts ask before running
 - modified scripts ask again
 
-## Install
+## Install from source
 
 ```bash
 cargo install --path .
