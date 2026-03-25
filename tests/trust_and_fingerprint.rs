@@ -36,11 +36,14 @@ fn ci_run_requires_matching_fingerprint() {
 
     let fingerprint = fingerprint_output(workspace.path(), None, &["check"]);
 
-    command_for(workspace.path(), None)
+    let output = command_for(workspace.path(), None)
         .args(["--ci", "--require-fingerprint", fingerprint.trim(), "check"])
         .assert()
         .success()
-        .stdout("ci-run\n");
+        .get_output()
+        .stdout
+        .clone();
+    assert_eq!(String::from_utf8(output).unwrap().trim_end(), "ci-run");
 
     command_for(workspace.path(), None)
         .args([
@@ -80,11 +83,14 @@ fn trusted_manifest_allows_run_and_reports_modified_after_change() {
     let fingerprint = fingerprint_output(workspace.path(), Some(home.path()), &["check"]);
     write_trust_manifest(home.path(), script.path(), fingerprint.trim());
 
-    command_for(workspace.path(), Some(home.path()))
+    let output = command_for(workspace.path(), Some(home.path()))
         .arg("check")
         .assert()
         .success()
-        .stdout("trusted\n");
+        .get_output()
+        .stdout
+        .clone();
+    assert_eq!(String::from_utf8(output).unwrap().trim_end(), "trusted");
 
     let trusted_list = list_output(workspace.path(), Some(home.path()));
     assert!(trusted_list.contains("trusted"));
