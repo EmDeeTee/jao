@@ -48,11 +48,13 @@ pub(crate) fn print_help() {
         section("SCRIPT COMMAND INPUT");
         line("  Script file stems still use '.' as command separators.");
         line("  Directories contribute command parts only when they contain a .jaofolder marker.");
+        line("  Discovery also respects .gitignore.");
         line("  .jaoignore files are applied recursively and exclude matching directories and scripts.");
-        line("  Example: myapp/backend/scripts/build.sh becomes:");
-        line("    jao myapp backend build from the workspace root if myapp/ and backend/ are marked");
-        line("    jao backend build from inside myapp/");
-        line("    jao build from inside backend/");
+        line("  Multi-project example:");
+        line("    apps/frontend/scripts/dev.sh with apps/ and frontend/ marked becomes:");
+        line("    jao apps frontend dev from the workspace root");
+        line("    jao frontend dev from inside apps/");
+        line("    jao dev from inside apps/frontend/");
         line("  Matching extension is chosen by OS: .sh on Unix-like systems, .bat on Windows.");
         line("  The script runs with working directory set to the script's folder.");
         println!();
@@ -83,24 +85,31 @@ pub(crate) fn print_help() {
         println!();
 
         section("EXAMPLES");
-        example("  jao --fingerprint deploy api prod");
-        line("    Resolve deploy.api.prod.sh/.bat, then fingerprint that script file.");
+        example("  jao check");
+        line("    Run check.sh / check.bat if found.");
+        example("  jao test integration");
+        line("    Run test.integration.sh / .bat if found.");
+        example("  jao db reset local");
+        line("    Run db.reset.local.sh / .bat if found.");
         example("  jao --list");
         #[cfg(feature = "trust-manifest")]
-        line("    Output format: <trust-state> <script-command> -> <script-path>.");
+        line("    Output includes trust state, command name, and resolved path.");
         #[cfg(not(feature = "trust-manifest"))]
-        line("    Output format: <script-command> -> <script-path>.");
-        example("  jao --ci --list");
-        line("    Output format: <script-command> -> <script-path>.");
+        line("    Output includes command name and resolved path.");
+        example("  jao apps backend build");
+        line("    Example of using .jaofolder in a multi-project repo.");
+        example("  jao --ci --require-fingerprint <FINGERPRINT> db reset local");
+        line("    Run only if the resolved script fingerprint matches exactly.");
         #[cfg(feature = "trust-manifest")]
-        example("  jao --ci --require-fingerprint <FINGERPRINT> test integrations myapp");
+        example("  jao --fingerprint db reset local");
         #[cfg(not(feature = "trust-manifest"))]
-        example("  jao --require-fingerprint <FINGERPRINT> test integrations myapp");
-        line("    Run only if resolved script fingerprint matches exactly.");
-        example("  jao test");
-        line("    Run test.sh / test.bat if found.");
-        example("  jao deploy api prod");
-        line("    Run deploy.api.prod.sh / .bat if found.");
+        example("  jao --require-fingerprint <FINGERPRINT> db reset local");
+        #[cfg(feature = "trust-manifest")]
+        line("    Print the fingerprint you can later require in CI.");
+        #[cfg(not(feature = "trust-manifest"))]
+        line("    Runs in this build require a fingerprint.");
+        example("  .jaoignore: scratch/ or seed.dev.sh");
+        line("    Hide throwaway directories or internal scripts from discovery.");
     } else {
         println!("jao - discover, inspect, and run workspace scripts");
         println!("  Finds platform scripts recursively and executes them from their own directory.");
@@ -132,11 +141,13 @@ pub(crate) fn print_help() {
         println!("SCRIPT COMMAND INPUT:");
         println!("  Script file stems still use '.' as command separators.");
         println!("  Directories contribute command parts only when they contain a .jaofolder marker.");
+        println!("  Discovery also respects .gitignore.");
         println!("  .jaoignore files are applied recursively and exclude matching directories and scripts.");
-        println!("  Example: myapp/backend/scripts/build.sh becomes:");
-        println!("    jao myapp backend build from the workspace root if myapp/ and backend/ are marked");
-        println!("    jao backend build from inside myapp/");
-        println!("    jao build from inside backend/");
+        println!("  Multi-project example:");
+        println!("    apps/frontend/scripts/dev.sh with apps/ and frontend/ marked becomes:");
+        println!("    jao apps frontend dev from the workspace root");
+        println!("    jao frontend dev from inside apps/");
+        println!("    jao dev from inside apps/frontend/");
         println!("  Matching extension is chosen by OS: .sh on Unix-like systems, .bat on Windows.");
         println!("  The script runs with working directory set to the script's folder.");
         println!();
@@ -165,24 +176,31 @@ pub(crate) fn print_help() {
         println!("  --ci --list prints command names and resolved paths (no trust labels).");
         println!();
         println!("EXAMPLES:");
-        println!("  jao --fingerprint deploy api prod");
-        println!("    Resolve deploy.api.prod.sh/.bat, then fingerprint that script file.");
+        println!("  jao check");
+        println!("    Run check.sh / check.bat if found.");
+        println!("  jao test integration");
+        println!("    Run test.integration.sh / .bat if found.");
+        println!("  jao db reset local");
+        println!("    Run db.reset.local.sh / .bat if found.");
         println!("  jao --list");
         #[cfg(feature = "trust-manifest")]
-        println!("    Output format: <trust-state> <script-command> -> <script-path>.");
+        println!("    Output includes trust state, command name, and resolved path.");
         #[cfg(not(feature = "trust-manifest"))]
-        println!("    Output format: <script-command> -> <script-path>.");
-        println!("  jao --ci --list");
-        println!("    Output format: <script-command> -> <script-path>.");
+        println!("    Output includes command name and resolved path.");
+        println!("  jao apps backend build");
+        println!("    Example of using .jaofolder in a multi-project repo.");
+        println!("  jao --ci --require-fingerprint <FINGERPRINT> db reset local");
+        println!("    Run only if the resolved script fingerprint matches exactly.");
         #[cfg(feature = "trust-manifest")]
-        println!("  jao --ci --require-fingerprint <FINGERPRINT> test integrations myapp");
+        println!("  jao --fingerprint db reset local");
         #[cfg(not(feature = "trust-manifest"))]
-        println!("  jao --require-fingerprint <FINGERPRINT> test integrations myapp");
-        println!("    Run only if resolved script fingerprint matches exactly.");
-        println!("  jao test");
-        println!("    Run test.sh / test.bat if found.");
-        println!("  jao deploy api prod");
-        println!("    Run deploy.api.prod.sh / .bat if found.");
+        println!("  jao --require-fingerprint <FINGERPRINT> db reset local");
+        #[cfg(feature = "trust-manifest")]
+        println!("    Print the fingerprint you can later require in CI.");
+        #[cfg(not(feature = "trust-manifest"))]
+        println!("    Runs in this build require a fingerprint.");
+        println!("  .jaoignore: scratch/ or seed.dev.sh");
+        println!("    Hide throwaway directories or internal scripts from discovery.");
     }
 }
 

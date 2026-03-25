@@ -95,12 +95,13 @@ fn trusted_manifest_allows_run_and_reports_modified_after_change() {
     let trusted_list = list_output(workspace.path(), Some(home.path()));
     assert!(trusted_list.contains("trusted"));
     assert!(trusted_list.contains("check"));
+    assert!(trusted_list.contains(script.path().file_name().unwrap().to_str().unwrap()));
 
     script.write_str(&script_contents("echo modified")).unwrap();
 
     let modified_list = list_output(workspace.path(), Some(home.path()));
     assert!(modified_list.contains("modified"));
-    assert!(modified_list.contains(script.path().to_str().unwrap()));
+    assert!(modified_list.contains(script.path().file_name().unwrap().to_str().unwrap()));
 
     command_for(workspace.path(), Some(home.path()))
         .arg("check")

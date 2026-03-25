@@ -7,21 +7,44 @@
 //!
 //! - Recursively discovers `.sh` scripts on Unix-like systems and `.bat`
 //!   scripts on Windows
-//! - Resolves a command like `jao deploy api prod` to a script selected by
+//! - Resolves a command like `jao db reset local` to a script selected by
 //!   `.jaofolder` path markers plus the script file stem
+//! - Respects `.gitignore` during discovery
 //! - Honors recursive `.jaoignore` files to skip ignored scripts and directories
 //! - Runs the script from the script's own directory
 //! - Supports SHA-256 fingerprint checks for CI-safe execution
 //! - Optionally keeps a local trust manifest for interactive runs
 //!
-//! # Common usage
+//! # Practical examples
 //!
 //! ```text
+//! # basic use
 //! jao --list
-//! jao --fingerprint deploy api prod
-//! jao deploy api prod
-//! jao --ci --require-fingerprint <FINGERPRINT> deploy api prod
+//! jao check
+//! jao test integration
+//! jao db reset local
 //! ```
+//!
+//! ```text
+//! # .jaofolder in a multi-project repo
+//! jao apps frontend dev
+//! jao apps backend build
+//! ```
+//!
+//! ```text
+//! # fingerprinting in CI
+//! jao --fingerprint db reset local
+//! jao --ci --require-fingerprint <FINGERPRINT> db reset local
+//! ```
+//!
+//! # `.jaofolder` and `.jaoignore`
+//!
+//! `.jaofolder` files mark directories that should appear in the command name.
+//! If `apps/`, `frontend/`, and `backend/` contain `.jaofolder`, then scripts
+//! with the same stem can stay distinct without forcing long commands everywhere.
+//!
+//! `.jaoignore` files work recursively like `.gitignore` and can hide
+//! throwaway or internal-only scripts from discovery.
 //!
 //! # Trust behavior
 //!
@@ -35,15 +58,7 @@
 //! If the crate is built without the `trust-manifest` feature, interactive
 //! trust is disabled and runs require an explicit fingerprint.
 //!
-//! # Fingerprints and Trust Manifests
-//!
-//! `.jaofolder` files mark directories that should appear in the command name.
-//! If `myapp/` and `backend/` contain `.jaofolder`, then a script at
-//! `myapp/backend/scripts/build.sh` is exposed as:
-//!
-//! - `jao myapp backend build` from the workspace root
-//! - `jao backend build` from inside `myapp/`
-//! - `jao build` from inside `myapp/backend/`
+//! # Fingerprints and trust manifests
 //!
 //! `jao` fingerprints a script by hashing two things together:
 //!
@@ -112,7 +127,7 @@ struct CliArgs {
     #[arg(long, conflicts_with = "script_command")]
     list: bool,
 
-    /// Script command, e.g. 'deploy api prod'
+    /// Script command, e.g. 'db reset local'
     #[arg(value_name = "SCRIPT_COMMAND", num_args = 1..)]
     script_command: Vec<String>,
 }

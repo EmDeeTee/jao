@@ -1,146 +1,153 @@
 # jao
 
-`jao` is a small CLI for people who already have a pile of repo scripts and do not want to invent a bigger tool just to run them.
+`jao` finds repo scripts and lets you run them by name.
 
-It walks your workspace, finds runnable scripts for your platform, and lets you call them by a simple command name instead of remembering where they live.
+It is meant for repos that already have shell or batch scripts and want a thin CLI on top, not a bigger task runner.
 
-If you have ever had a repo full of things like:
+## What It Does
 
-- `scripts/check.sh`
-- `ops/deploy.api.prod.sh`
-- `tools/test.integration.sh`
+- Finds runnable scripts under the directory you start from
+- Matches `.sh` on Unix and `.bat` on Windows
+- Lets you run scripts by command parts instead of file paths
+- Respects `.gitignore` during discovery
+- Supports `.jaofolder` to expose directory names in commands
+- Supports recursive `.jaoignore` files to hide scripts or whole areas
+- Supports trust prompts for local use and fingerprints for CI
 
-and thought "I just want to run the thing, not maintain another task runner", that is the job `jao` is trying to do.
+**`jao` runs scripts from the script's own directory, so existing scripts that rely on relative paths keep working.**
 
-## What It Gives You
+## Example 1: Basic Use
 
-- Recursive script discovery from the directory you run it in
-- A simple command style: `jao deploy api prod`
-- Optional `.jaofolder` markers to expose directory names as command prefixes
-- Optional `.jaoignore` rules to exclude scripts and directories from discovery
-- Cross-platform matching: `.sh` on Unix, `.bat` on Windows
-- Script fingerprinting for CI or locked-down runs
-- Trust tracking for local interactive use
+Repo:
 
-The default build keeps a trust manifest so local runs are practical:
-
-- first run of a script asks whether you trust it
-- changed scripts ask again
-- CI can require an exact fingerprint and skip all prompts
-
-## How It Works
-
-`jao` joins positional arguments with dots and looks for a matching script file.
-Script file stems still define the tail of the command, while directories only
-show up in the command when they contain a `.jaofolder` marker file.
-
-Examples:
-
-```bash
-jao test
-jao check all
-jao deploy api prod
+```text
+scripts/
+  check.sh
+  test.integration.sh
+  db.reset.local.sh
 ```
 
-Those resolve to script base names like:
-
-- `test`
-- `check.all`
-- `deploy.api.prod`
-
-Then `jao` finds the matching `.sh` or `.bat` file somewhere under the current directory and runs it from that script's own folder.
-
-That last part matters. A lot of repo scripts assume their working directory is the folder they live in. `jao` respects that.
-
-### Folder Markers
-
-If you have a script at `myapp/backend/scripts/build.sh` and both `myapp/` and
-`backend/` contain a `.jaofolder` file, then the command changes with where you
-run `jao`:
-
-- from outside `myapp/`: `jao myapp backend build`
-- from inside `myapp/`: `jao backend build`
-- from inside `myapp/backend/`: `jao build`
-
-Directories without `.jaofolder` stay invisible, so folders like `scripts/`
-can keep organizing files without polluting the command name.
-
-### Ignore Rules
-
-`.jaoignore` files are applied recursively like `.gitignore` files during
-discovery.
-
-- ignored directories are not descended into
-- ignored scripts do not appear in `jao --list`
-- ignored scripts cannot be resolved or run
-- more nested `.jaoignore` files override less nested ones
-
-## Common Commands
-
-List everything `jao` can run from the current repo:
+Commands:
 
 ```bash
+jao check
+jao test integration
+jao db reset local
 jao --list
 ```
 
-This prints logical command names together with the script path they resolve to.
+This is the default model: command parts map to script stems like `check`, `test.integration`, and `db.reset.local`.
 
-Print a script fingerprint:
+## Example 2: `.jaofolder` In A Multi-Project Repo
 
-```bash
-jao --fingerprint deploy api prod
+Repo:
+
+```text
+apps/
+  .jaofolder
+  frontend/
+    .jaofolder
+    scripts/
+      build.sh
+      dev.sh
+  backend/
+    .jaofolder
+    scripts/
+      build.sh
+      dev.sh
 ```
 
-Run a script normally:
+From the repo root:
 
 ```bash
-jao deploy api prod
+jao apps frontend dev
+jao apps backend build
 ```
 
-Run in CI with a required fingerprint:
+From inside `apps/`:
 
 ```bash
-jao --ci --require-fingerprint <FINGERPRINT> deploy api prod
+jao frontend dev
+jao backend build
 ```
 
-## Why Use This Instead of Just Calling Scripts Directly?
+From inside `apps/backend/`:
 
-Because direct script paths rot fast.
+```bash
+jao dev
+jao build
+```
 
-- People move files around
-- Different teams stash scripts in different folders
-- Nobody remembers exact relative paths
-- CI wants something stricter than "just trust me"
+Use this when multiple projects have the same script names and you want commands to get shorter as you move deeper into the repo.
 
-`jao` gives you one stable way to discover, inspect, and run scripts without forcing your repo into a full task-runner ecosystem.
+## Example 3: `.jaoignore` For Internal Or Throwaway Scripts
 
-It is intentionally boring software. That is the point.
+Repo:
 
-## Trust Model
+```text
+.jaoignore
+scripts/
+  check.sh
+scratch/
+  scripts/
+    one-off-fix.sh
+services/
+  api/
+    .jaofolder
+    .jaoignore
+    scripts/
+      migrate.dev.sh
+      seed.dev.sh
+```
 
-By default, `jao` stores config under `~/.jao/` and keeps a trust manifest there.
+Root `.jaoignore`:
 
-Interactive runs:
+```text
+scratch/
+```
 
-- unknown scripts prompt before running
-- modified scripts prompt again
+`services/api/.jaoignore`:
 
-Non-interactive runs:
+```text
+seed.dev.sh
+```
 
-- `--ci` never prompts
-- CI runs require `--require-fingerprint`
+Result:
 
-This makes local usage convenient without turning CI into a guess.
+- `scratch/` is not walked at all
+- `seed.dev.sh` is hidden from `jao --list`
+- `migrate.dev.sh` still resolves normally
+
+Use this when a repo contains one-off maintenance scripts, experiments, or internal scripts that should not be part of the public command surface.
+
+## Example 4: Fingerprinting In CI
+
+Print the fingerprint for a script:
+
+```bash
+jao --fingerprint db reset local
+```
+
+Use that value in CI:
+
+```bash
+jao --ci --require-fingerprint <FINGERPRINT> db reset local
+```
+
+That gives CI an exact content check instead of trusting whatever script happens to be present.
+
+For local interactive use, `jao` keeps a trust manifest under `~/.jao/`:
+
+- unknown scripts ask before running
+- modified scripts ask again
 
 ## Install
-
-Build it locally with Cargo:
 
 ```bash
 cargo install --path .
 ```
 
-Or run it directly during development:
+During development:
 
 ```bash
 cargo run -- --list
@@ -148,30 +155,11 @@ cargo run -- --list
 
 ## Docker
 
-Build the image:
-
 ```bash
 docker build -t jao .
-```
-
-Run it against your current workspace:
-
-```bash
 docker run --rm -it -v "$PWD:/workspace" -w /workspace jao --list
 ```
 
 ## License
 
-`jao` is licensed under Apache-2.0.
-
-If you redistribute it or ship a derivative, keep the license and notice text in place. If you improve it, upstream PRs are preferred.
-
-## Good Fit
-
-`jao` is a good fit if:
-
-- your repo already uses shell or batch scripts
-- you want a thin CLI on top of them
-- you want trust/fingerprint checks without much ceremony
-
-It is probably not the right tool if you want a full workflow engine, dependency graph, task cache, or language-specific build system. It is just a clean way to find and run scripts.
+Apache-2.0
