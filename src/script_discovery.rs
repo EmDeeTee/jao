@@ -34,86 +34,6 @@ pub(crate) struct DiscoveredScript<'a> {
     pub(crate) parts: ScriptParts<'a>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct ScriptParts<'a> {
-    parts: Vec<&'a OsStr>,
-}
-
-impl<'a> From<Vec<&'a OsStr>> for ScriptParts<'a> {
-    fn from(parts: Vec<&'a OsStr>) -> Self {
-        Self { parts }
-    }
-}
-
-impl<'a> ScriptParts<'a> {
-    pub(crate) fn new() -> Self {
-        Self { parts: Vec::new() }
-    }
-
-    pub(crate) fn push(&mut self, part: &'a OsStr) {
-        self.parts
-            .push(part);
-    }
-
-    pub(crate) fn matches_exactly(&self, input_parts: &ScriptParts<'_>) -> bool {
-        self.parts
-            .len()
-            == input_parts
-                .parts
-                .len()
-            && self.matches_prefix(input_parts)
-    }
-
-    pub(crate) fn try_get_next_part_after(&self, partial_parts: &ScriptParts<'_>) -> Option<&OsStr> {
-        if self
-            .parts
-            .len()
-            <= partial_parts
-                .parts
-                .len()
-            || !self.matches_prefix(partial_parts)
-        {
-            return None;
-        }
-
-        self.parts
-            .get(
-                partial_parts
-                    .parts
-                    .len(),
-            )
-            .copied()
-    }
-
-    pub(crate) fn display(&self) -> OsString {
-        self.parts
-            .join(OsStr::new(" "))
-    }
-
-    fn matches_prefix(&self, input_parts: &ScriptParts<'_>) -> bool {
-        command_parts_match(
-            self.parts
-                .iter()
-                .copied()
-                .take(
-                    input_parts
-                        .parts
-                        .len(),
-                ),
-            input_parts
-                .parts
-                .iter()
-                .copied(),
-        )
-    }
-
-    fn concat(mut self, other: Self) -> Self {
-        self.parts
-            .extend(other.parts);
-        self
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum DiscoveryFlow {
     ContinueSearching,
@@ -168,7 +88,7 @@ fn is_supported_script_extension(ext: &OsStr) -> bool {
 }
 
 fn into_discovered_script<'a>(root: impl AsRef<Path>, script_path: &'a Path) -> Option<DiscoveredScript<'a>> {
-    let script_path_parts = split_script_stem_parts(script_path.file_stem()?)?;
+    let script_path_parts = ScriptParts::from_script_stem(script_path.file_stem()?);
 
     let command_parts = if let Some(parent) = script_path.parent()
         && let Some(marked_folder_parts) = get_marked_folder_parts(root, parent)
@@ -251,16 +171,6 @@ pub(crate) fn resolve_script(root: impl AsRef<Path>, parts: Vec<&OsStr>) -> JaoR
     })
 }
 
-pub(crate) fn command_parts_match<'a>(
-    discovered_command_parts: impl IntoIterator<Item = &'a OsStr>,
-    input_parts: impl IntoIterator<Item = &'a OsStr>,
-) -> bool {
-    discovered_command_parts
-        .into_iter()
-        .zip(input_parts)
-        .all(|(discovered_command_part, input_part)| is_command_name_match(discovered_command_part, input_part))
-}
-
 fn is_command_name_match(discovered_command_name: &OsStr, script_name: &OsStr) -> bool {
     if cfg!(windows) {
         discovered_command_name.eq_ignore_ascii_case(script_name)
@@ -269,12 +179,77 @@ fn is_command_name_match(discovered_command_name: &OsStr, script_name: &OsStr) -
     }
 }
 
-fn split_script_stem_parts<'a>(stem: &'a OsStr) -> Option<ScriptParts<'a>> {
-    Some(ScriptParts {
-        parts: stem
-            .to_str()?
-            .split('.')
-            .map(OsStr::new)
-            .collect(),
-    })
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ScriptParts<'a> {
+    parts: Vec<&'a OsStr>,
+}
+
+impl<'a> From<Vec<&'a OsStr>> for ScriptParts<'a> {
+    fn from(parts: Vec<&'a OsStr>) -> Self {
+        Self { parts }
+    }
+}
+
+#[rustfmt::skip]
+impl<'a> ScriptParts<'a> {
+    pub(crate) fn new() -> Self {
+        Self { parts: Vec::new() }
+    }
+
+    // Maps a.b.c.d to [a, b, c, d]
+    pub(crate) fn from_script_stem(stem: &'a OsStr) -> Self {
+        let parts = stem
+            .as_encoded_bytes()
+            .split(|byte| *byte == b'.')
+            .map(|part| {
+                // SAFETY: `part` is a subslice of `stem.as_encoded_bytes()` split only
+                // on the ASCII `.` delimiter, which preserves valid OsStr boundaries.
+                unsafe { OsStr::from_encoded_bytes_unchecked(part) }
+            })
+            .collect();
+
+        Self { parts }
+    }
+
+    pub(crate) fn push(&mut self, part: &'a OsStr) {
+        self.parts.push(part);
+    }
+
+    pub(crate) fn matches_exactly(&self, input_parts: &ScriptParts<'_>) -> bool {
+        self.parts.len() == input_parts.parts.len() 
+            && self.matches_prior(input_parts)
+    }
+
+    pub(crate) fn try_get_next_part_after(&self, partial_parts: &ScriptParts<'_>) -> Option<&OsStr> {
+        if self.parts.len() <= partial_parts.parts.len() 
+            || !self.matches_prior(partial_parts) {
+            None
+        }
+        else {
+            self.parts.get(partial_parts.parts.len()).copied()
+        }
+    }
+
+    pub(crate) fn display(&self) -> OsString {
+        self.parts.join(OsStr::new(" "))
+    }
+
+    fn matches_prior(&self, input_parts: &ScriptParts<'_>) -> bool {
+        self.parts
+            .iter()
+            .copied()
+            .take(input_parts.parts.len())
+            .zip(
+                input_parts
+                    .parts
+                    .iter()
+                    .copied(),
+            )
+            .all(|(discovered_command_part, input_part)| is_command_name_match(discovered_command_part, input_part))
+    }
+
+    fn concat(mut self, other: Self) -> Self {
+        self.parts.extend(other.parts);
+        self
+    }
 }
