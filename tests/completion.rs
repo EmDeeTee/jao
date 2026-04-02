@@ -108,8 +108,9 @@ fn dynamic_completion_respects_recursive_jaoignore() {
 #[test]
 fn dynamic_completion_supports_options_and_fingerprint_context() {
     let workspace = TempDir::new().unwrap();
+    let script_name = "completion-fingerprint-only";
     workspace
-        .child(script_rel_path(&["scripts"], "check"))
+        .child(script_rel_path(&["scripts"], script_name))
         .write_str(script_contents())
         .unwrap();
 
@@ -118,11 +119,14 @@ fn dynamic_completion_supports_options_and_fingerprint_context() {
         vec![String::from("--ci"), String::from("--completions")]
     );
     assert_eq!(completion_lines(workspace.path(), 1, &["--completions", "b"]), vec![String::from("bash")]);
-    assert_eq!(completion_lines(workspace.path(), 1, &["--fingerprint", ""]), vec![String::from("check")]);
+    assert_eq!(
+        completion_lines(workspace.path(), 1, &["--fingerprint", ""]),
+        vec![script_name.to_string()]
+    );
     assert!(completion_lines(workspace.path(), 2, &["--ci", "--require-fingerprint", "deadbeef"],).is_empty());
     assert_eq!(
         completion_lines(workspace.path(), 3, &["--ci", "--require-fingerprint", "deadbeef", ""],),
-        vec![String::from("check")]
+        vec![script_name.to_string()]
     );
 }
 
