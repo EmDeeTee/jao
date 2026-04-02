@@ -6,10 +6,11 @@
 //! partially typed command words supplied by the shell.
 
 use std::collections::BTreeSet;
-use std::ffi::OsStr;
+use std::ffi::{OsStr, OsString};
 use std::io::{self, Write};
 use std::path::Path;
 
+use crate::script_discovery::{DiscoveryFlow, ScriptParts};
 use crate::{JaoError, JaoResult, script_discovery};
 
 const STATIC_OPTIONS: &[&str] = &[
@@ -71,79 +72,79 @@ pub(crate) fn print_shell_completion(shell: Shell) -> JaoResult<()> {
 /// Each candidate is emitted on its own line so the shell integration scripts can
 /// consume the output without extra parsing rules.
 pub(crate) fn complete(root: impl AsRef<Path>, request: CompletionRequest<'_>) -> JaoResult<()> {
-    let completions = complete_request(root, &request)?;
+    let completions = complete_request(root, request);
+
     let mut out = io::stdout().lock();
 
     for completion in completions {
-        writeln!(out, "{completion}")?;
+        #[rustfmt::skip]
+        writeln!(out, "{}", completion.display())?;
     }
 
     Ok(())
 }
 
-fn complete_request(root: impl AsRef<Path>, args: &CompletionRequest<'_>) -> JaoResult<Vec<String>> {
+fn complete_request(root: impl AsRef<Path>, args: CompletionRequest<'_>) -> Vec<OsString> {
     match completion_context(&args.given_arguments, args.index_to_complete) {
-        CompletionContext::Options { prefix } => Ok(complete_options(&prefix)),
-        CompletionContext::Shells { prefix } => Ok(complete_shells(&prefix)),
-        CompletionContext::Scripts { prior_parts, current_prefix } => complete_script_parts(root, &prior_parts, &current_prefix),
-        CompletionContext::None => Ok(Vec::new()),
+        CompletionContext::Options { word_being_typed: prefix } => complete_options(prefix),
+        CompletionContext::Shells { word_being_typed: prefix } => complete_shells(prefix),
+        CompletionContext::Scripts {
+            prior_parts,
+            word_being_typed,
+        } => complete_script_parts(root, prior_parts, word_being_typed),
+        CompletionContext::None => Vec::new(),
     }
 }
 
 #[rustfmt::skip]
-fn complete_script_parts(root: impl AsRef<Path>, prior_parts: &[String], current_prefix: &str) -> JaoResult<Vec<String>> {
-    let mut completions = BTreeSet::new();
-    let next_index = prior_parts.len();
+fn complete_script_parts(root: impl AsRef<Path>, prior_parts: ScriptParts, word_being_typed: &OsStr) -> Vec<OsString> {
+    let mut suggested_completions = BTreeSet::new();
 
-    let _ = script_discovery::for_each_discovered_script(root, |script| {
-        if script.command_parts.len() <= next_index
-            || !script_discovery::command_parts_match(
-                script.command_parts.iter().copied(),
-                prior_parts.iter().map(String::as_str)
-            )
+    _ = script_discovery::for_each_discovered_script(root, |script| {
+        if let Some(candidate) = script.parts.try_get_next_part_after(&prior_parts)
+            && starts_with_os_str(candidate, word_being_typed)
         {
-            return Ok(std::ops::ControlFlow::<()>::Continue(()));
+            suggested_completions.insert(candidate.to_os_string());
         }
 
-        let candidate = script.command_parts[next_index];
-        if script_discovery::command_part_has_prefix(candidate, current_prefix) {
-            completions.insert(candidate.to_string());
-        }
+        Ok(DiscoveryFlow::ContinueSearching)
+    });
 
-        Ok(std::ops::ControlFlow::<()>::Continue(()))
-    })?;
-
-    Ok(completions.into_iter().collect())
-}
-
-fn complete_options(prefix: &str) -> Vec<String> {
-    STATIC_OPTIONS
-        .iter()
-        .copied()
-        .filter(|option| option.starts_with(prefix))
-        .map(str::to_string)
+    suggested_completions
+        .into_iter()
         .collect()
 }
 
-fn complete_shells(prefix: &str) -> Vec<String> {
+fn complete_options(prefix: &OsStr) -> Vec<OsString> {
+    STATIC_OPTIONS
+        .iter()
+        .copied()
+        .map(OsStr::new)
+        .filter(|option| starts_with_os_str(option, prefix))
+        .map(OsStr::to_os_string)
+        .collect()
+}
+
+fn complete_shells(prefix: &OsStr) -> Vec<OsString> {
     ["bash", "zsh"]
         .into_iter()
-        .filter(|shell| shell.starts_with(prefix))
-        .map(str::to_string)
+        .map(OsStr::new)
+        .filter(|shell| starts_with_os_str(shell, prefix))
+        .map(OsStr::to_os_string)
         .collect()
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-enum CompletionContext {
-    Options { prefix: String },
-    Shells { prefix: String },
-    Scripts { prior_parts: Vec<String>, current_prefix: String },
+enum CompletionContext<'a> {
+    Options { word_being_typed: &'a OsStr },
+    Shells { word_being_typed: &'a OsStr },
+    Scripts { word_being_typed: &'a OsStr, prior_parts: ScriptParts<'a> },
     None,
 }
 
-fn completion_context(words: &[&OsStr], current_index: usize) -> CompletionContext {
+fn completion_context<'a>(words: &[&'a OsStr], current_index: usize) -> CompletionContext<'a> {
     let mut mode = ParseMode::TopLevel;
-    let mut prior_script_parts = Vec::new();
+    let mut prior_parts = ScriptParts::new();
     let mut expects_require_fingerprint_value = false;
     let mut expects_shell_value = false;
 
@@ -151,8 +152,6 @@ fn completion_context(words: &[&OsStr], current_index: usize) -> CompletionConte
         .iter()
         .take(current_index)
     {
-        let str_word = word.to_string_lossy();
-
         if expects_require_fingerprint_value {
             expects_require_fingerprint_value = false;
             continue;
@@ -165,19 +164,25 @@ fn completion_context(words: &[&OsStr], current_index: usize) -> CompletionConte
         }
 
         match mode {
-            ParseMode::TopLevel => match str_word.as_ref() {
-                "--ci" => {}
-                "--fingerprint" => mode = ParseMode::ScriptParts,
-                "--require-fingerprint" => expects_require_fingerprint_value = true,
-                "--completions" => expects_shell_value = true,
-                "--list" | "--help" | "--version" => return CompletionContext::None,
-                _ if str_word.starts_with('-') => {}
-                _ => {
+            ParseMode::TopLevel => {
+                if *word == OsStr::new("--ci") {
+                    //
+                } else if *word == OsStr::new("--fingerprint") {
                     mode = ParseMode::ScriptParts;
-                    prior_script_parts.push(str_word.into_owned());
+                } else if *word == OsStr::new("--require-fingerprint") {
+                    expects_require_fingerprint_value = true;
+                } else if *word == OsStr::new("--completions") {
+                    expects_shell_value = true;
+                } else if *word == OsStr::new("--list") || *word == OsStr::new("--help") || *word == OsStr::new("--version") {
+                    return CompletionContext::None;
+                } else if starts_with_os_str(word, OsStr::new("-")) {
+                    //
+                } else {
+                    mode = ParseMode::ScriptParts;
+                    prior_parts.push(*word);
                 }
-            },
-            ParseMode::ScriptParts => prior_script_parts.push(str_word.into_owned()),
+            }
+            ParseMode::ScriptParts => prior_parts.push(*word),
         }
     }
 
@@ -185,29 +190,46 @@ fn completion_context(words: &[&OsStr], current_index: usize) -> CompletionConte
         return CompletionContext::None;
     }
 
-    let current = words
+    let word_being_typed = words
         .get(current_index)
-        .map_or_else(String::new, |word| {
-            word.to_string_lossy()
-                .into_owned()
-        });
+        .copied()
+        .unwrap_or_else(|| OsStr::new(""));
 
     if expects_shell_value {
-        return CompletionContext::Shells { prefix: current };
+        return CompletionContext::Shells { word_being_typed };
     }
 
     match mode {
-        ParseMode::TopLevel if current.starts_with('-') => CompletionContext::Options { prefix: current },
-        // Once a positional script part appears, all following words are treated
-        // as command parts rather than top-level options.
-        ParseMode::TopLevel => CompletionContext::Scripts {
-            prior_parts: Vec::new(),
-            current_prefix: current,
+        ParseMode::TopLevel if starts_with_os_str(word_being_typed, OsStr::new("-")) => CompletionContext::Options { word_being_typed },
+        ParseMode::TopLevel | ParseMode::ScriptParts => CompletionContext::Scripts {
+            prior_parts,
+            word_being_typed,
         },
-        ParseMode::ScriptParts => CompletionContext::Scripts {
-            prior_parts: prior_script_parts,
-            current_prefix: current,
-        },
+    }
+}
+
+fn starts_with_os_str(full: &OsStr, start: &OsStr) -> bool {
+    #[cfg(unix)]
+    {
+        use std::os::unix::ffi::OsStrExt;
+
+        full.as_bytes()
+            .starts_with(start.as_bytes())
+    }
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::ffi::OsStrExt;
+
+        let mut value_units = full.encode_wide();
+
+        for prefix_unit in start.encode_wide() {
+            if value_units.next() != Some(prefix_unit) {
+                return false;
+            }
+        }
+
+        true
     }
 }
 

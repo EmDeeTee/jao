@@ -49,6 +49,7 @@ fn canonicalise_within(safe_root: impl AsRef<Path>, path_to_canonicalise: impl A
     };
 
     let canonical_file_path = fs::canonicalize(&path_to_canonicalise)?;
+
     if !canonical_file_path.starts_with(&canonical_root) {
         return Err(JaoError::InvalidStoragePath { path: path_to_canonicalise });
     }

@@ -1,3 +1,4 @@
+use std::ffi::OsStr;
 #[cfg(feature = "trust-manifest")]
 use std::io::{self, IsTerminal, Write};
 use std::path::Path;
@@ -48,7 +49,11 @@ pub(crate) fn run_script_with_trust(script_path: impl AsRef<Path>, config: &JaoC
     execute_script(script_path)
 }
 
-pub(crate) fn run_script_with_fingerprint(script_path: impl AsRef<Path>, required_fingerprint: &str) -> JaoResult<()> {
+pub(crate) fn run_script_with_fingerprint(script_path: impl AsRef<Path>, required_fingerprint: &OsStr) -> JaoResult<()> {
+    let required_fingerprint = required_fingerprint
+        .to_str()
+        .ok_or(JaoError::InvalidArguments("argument contains invalid UTF-8"))?;
+
     let required_fingerprint = normalize_required_fingerprint(required_fingerprint)?;
 
     let (canonical_path, record) = trust::create_trust_record(&script_path)?;

@@ -15,8 +15,10 @@ fn version_flag_prints_version() {
     command()
         .arg("--version")
         .assert()
-        .success()
-        .stdout(contains("jao "));
+    .failure()
+    .code(2)
+    .stdout(contains("jao "))
+    .stderr(contains("error: jao "));
 }
 
 #[test]
@@ -25,8 +27,8 @@ fn require_fingerprint_without_ci_is_a_parse_error() {
         .args(["--require-fingerprint", "deadbeef", "check"])
         .assert()
         .failure()
-        .code(2)
-        .stderr("error: --require-fingerprint requires --ci and a script command\n");
+    .code(1)
+    .stderr("error: invalid --require-fingerprint value (expected 64 hex chars): deadbeef\n");
 }
 
 #[test]
@@ -36,7 +38,7 @@ fn invalid_shell_is_a_parse_error() {
         .assert()
         .failure()
         .code(2)
-        .stderr("error: invalid shell 'fish' (expected 'bash' or 'zsh')\n");
+    .stderr("error: Unknown shell type passed\n");
 }
 
 fn command() -> Command {

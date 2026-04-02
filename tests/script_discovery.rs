@@ -176,6 +176,10 @@ fn fingerprint_output(cwd: &std::path::Path, parts: &[&str]) -> String {
 }
 
 fn list_line(command: &str, path: &std::path::Path) -> String {
+    #[cfg(feature = "trust-manifest")]
+    return format!("unknown \t {command} \t\t {}\n", path.display());
+
+    #[cfg(not(feature = "trust-manifest"))]
     format!("{command} \t\t {}\n", path.display())
 }
 

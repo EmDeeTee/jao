@@ -1,7 +1,8 @@
 use std::io::{self, Write};
-use std::ops::ControlFlow;
 use std::path::Path;
 
+#[cfg(feature = "trust-manifest")]
+use crate::script_discovery::DiscoveryFlow;
 #[cfg(feature = "trust-manifest")]
 use crate::trust::{self, TrustedManifest};
 use crate::{JaoResult, script_discovery};
@@ -10,17 +11,17 @@ use crate::{JaoResult, script_discovery};
 pub(crate) fn list_scripts_with_trust_status(root: impl AsRef<Path>, manifest: &TrustedManifest) -> JaoResult<()> {
     let mut out = io::stdout().lock();
 
-    let _ = script_discovery::for_each_discovered_script(&root, |script| {
+    script_discovery::for_each_discovered_script(&root, |script| {
         let trust = trust::determine_script_trust_state(script.path, manifest)?;
+
+        #[rustfmt::skip]
         writeln!(
-            out,
-            "{trust} \t {} \t\t {}",
-            script.make_command_display(),
-            script
-                .path
-                .display()
+            out,"{trust} \t {} \t\t {}",
+            script.parts.display().to_string_lossy(),
+            script.path.display()
         )?;
-        Ok(ControlFlow::<()>::Continue(()))
+
+        Ok(DiscoveryFlow::ContinueSearching)
     })?;
 
     Ok(())
@@ -30,16 +31,15 @@ pub(crate) fn list_scripts_with_trust_status(root: impl AsRef<Path>, manifest: &
 pub(crate) fn list_scripts(root: impl AsRef<Path>) -> JaoResult<()> {
     let mut out = io::stdout().lock();
 
-    let _ = script_discovery::for_each_discovered_script(&root, |script| {
+    script_discovery::for_each_discovered_script(&root, |script| {
+        #[rustfmt::skip]
         writeln!(
-            out,
-            "{} \t\t {}",
-            script.make_command_display(),
-            script
-                .path
-                .display()
+            out, "{} \t\t {}",
+            script.parts.display().to_string_lossy(),
+            script.path.display()
         )?;
-        Ok(ControlFlow::<()>::Continue(()))
+
+        Ok(DiscoveryFlow::ContinueSearching)
     })?;
 
     Ok(())

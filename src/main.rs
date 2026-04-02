@@ -236,13 +236,13 @@ fn __main() -> JaoResult<()> {
         }
         CliAction::Fingerprint { parts } => {
             let root = std::env::current_dir()?;
-            let script_path = script_discovery::resolve_script(root, &os_str_parts_to_strings(&parts)?)?;
+            let script_path = script_discovery::resolve_script(root, parts)?;
             fingerprint_script(script_path)
         }
         CliAction::RunFingerprinted { parts, required_fingerprint } => {
             let root = std::env::current_dir()?;
-            let script_path = script_discovery::resolve_script(root, &os_str_parts_to_strings(&parts)?)?;
-            run_script_with_fingerprint(script_path, &os_str_to_string(required_fingerprint)?)
+            let script_path = script_discovery::resolve_script(root, parts)?;
+            run_script_with_fingerprint(script_path, required_fingerprint)
         }
         CliAction::Run { .. } if context.ci => Err(JaoError::CiRunRequiresFingerprint),
         #[cfg(not(feature = "trust-manifest"))]
@@ -250,7 +250,7 @@ fn __main() -> JaoResult<()> {
         #[cfg(feature = "trust-manifest")]
         CliAction::Run { parts } => {
             let root = std::env::current_dir()?;
-            let script_path = script_discovery::resolve_script(root, &os_str_parts_to_strings(&parts)?)?;
+            let script_path = script_discovery::resolve_script(root, parts)?;
             let config = config::load_or_init()?;
             let mut trusted_manifest = trust::load_or_init(&config)?;
             run_script_with_trust(script_path, &config, &mut trusted_manifest)
@@ -404,19 +404,4 @@ fn clap_command() -> Command {
                 .trailing_var_arg(true)
                 .value_parser(OsStringValueParser::new()),
         )
-}
-
-fn os_str_to_string(value: &OsStr) -> JaoResult<String> {
-    value
-        .to_str()
-        .map(str::to_owned)
-        .ok_or(JaoError::InvalidArguments("argument contains invalid UTF-8"))
-}
-
-fn os_str_parts_to_strings(parts: &[&OsStr]) -> JaoResult<Vec<String>> {
-    parts
-        .iter()
-        .copied()
-        .map(os_str_to_string)
-        .collect()
 }
