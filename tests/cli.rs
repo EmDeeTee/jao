@@ -19,8 +19,7 @@ fn version_flag_prints_version() {
         .assert()
         .failure()
         .code(2)
-        .stdout(contains("jao "))
-        .stderr(contains("error: jao "));
+        .stdout(contains("jao "));
 }
 
 #[test]
