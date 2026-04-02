@@ -109,6 +109,7 @@ use crate::actions::{CompletionRequest, Shell, fingerprint_script, run_script_wi
 use crate::actions::{list_scripts_with_trust_status, run_script_with_trust};
 
 mod actions;
+mod platform;
 mod script_discovery;
 mod storage;
 mod trust;

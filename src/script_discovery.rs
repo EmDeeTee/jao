@@ -23,23 +23,44 @@ use std::path::{Path, PathBuf};
 
 use ignore::{DirEntry, Walk, WalkBuilder};
 
+use crate::platform::osstr;
 use crate::{JaoError, JaoResult};
 
 const FOLDER_MARKER_FILE: &str = ".jaofolder";
 const IGNORE_FILE: &str = ".jaoignore";
 
+/// Script path plus parsed command parts discovered during workspace walk.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct DiscoveredScript<'a> {
+    /// Path to the discovered script file.
     pub(crate) path: &'a Path,
+    /// Command parts derived from `.jaofolder` ancestors and script stem.
     pub(crate) parts: ScriptParts<'a>,
 }
 
+/// Callback flow-control for discovery iteration.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum DiscoveryFlow {
+    /// Continue scanning the directory walk for additional scripts.
     ContinueSearching,
+    /// Stop scanning immediately and return early from discovery.
     StopSearching,
 }
 
+/// Walks scripts under `root` and invokes `script_handler` for each discovered script.
+///
+/// Discovery behavior:
+///
+/// - Applies standard ignore filtering via `ignore::WalkBuilder`
+/// - Honors recursive `.jaoignore` files
+/// - Only yields files with platform-supported script extensions
+/// - Builds command parts from `.jaofolder` path markers plus script stem
+///
+/// Return value semantics:
+///
+/// - `Ok(true)`: traversal stopped early because handler returned
+///   [`DiscoveryFlow::StopSearching`]
+/// - `Ok(false)`: traversal reached the end naturally
 pub(crate) fn for_each_discovered_script(
     root: impl AsRef<Path>,
     mut script_handler: impl for<'a> FnMut(DiscoveredScript<'a>) -> JaoResult<DiscoveryFlow>,
@@ -139,6 +160,11 @@ fn get_marked_folder_parts<'a>(from: impl AsRef<Path>, to: &'a Path) -> Option<S
 ///
 /// The input parts are joined with `.` and matched against the command name
 /// derived from `.jaofolder` ancestor directories plus the script file stem.
+///
+/// Matching is case-insensitive on Windows and case-sensitive on Unix-like
+/// systems.
+///
+/// Returns [`JaoError::ScriptNotFound`] when no discovered script matches.
 pub(crate) fn resolve_script(root: impl AsRef<Path>, parts: Vec<&OsStr>) -> JaoResult<PathBuf> {
     let requested_parts = ScriptParts::from(parts);
     let mut resolved_path = None;
@@ -179,6 +205,7 @@ fn is_command_name_match(discovered_command_name: &OsStr, script_name: &OsStr) -
     }
 }
 
+/// Borrowed command-part collection with prefix and exact-match helpers.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ScriptParts<'a> {
     parts: Vec<&'a OsStr>,
@@ -192,34 +219,40 @@ impl<'a> From<Vec<&'a OsStr>> for ScriptParts<'a> {
 
 #[rustfmt::skip]
 impl<'a> ScriptParts<'a> {
+    /// Creates an empty command-part collection.
+    ///
+    /// Used while incrementally building completion context from already-typed
+    /// command words.
     pub(crate) fn new() -> Self {
         Self { parts: Vec::new() }
     }
 
-    // Maps a.b.c.d to [a, b, c, d]
+    /// Builds command parts from a script stem by splitting on ASCII `.`.
+    ///
+    /// For example, `build.docker.local` becomes `build`, `docker`, `local`.
     pub(crate) fn from_script_stem(stem: &'a OsStr) -> Self {
-        let parts = stem
-            .as_encoded_bytes()
-            .split(|byte| *byte == b'.')
-            .map(|part| {
-                // SAFETY: `part` is a subslice of `stem.as_encoded_bytes()` split only
-                // on the ASCII `.` delimiter, which preserves valid OsStr boundaries.
-                unsafe { OsStr::from_encoded_bytes_unchecked(part) }
-            })
-            .collect();
-
-        Self { parts }
+        Self { parts: osstr::split_on_dot(stem) }
     }
 
+    /// Appends a command part.
+    ///
+    /// This does not normalize or validate the input part.
     pub(crate) fn push(&mut self, part: &'a OsStr) {
         self.parts.push(part);
     }
 
+    /// Returns true when `input_parts` matches in content and length.
+    ///
+    /// This is an exact match operation (all parts and length must match).
     pub(crate) fn matches_exactly(&self, input_parts: &ScriptParts<'_>) -> bool {
         self.parts.len() == input_parts.parts.len() 
             && self.matches_prior(input_parts)
     }
 
+    /// Returns the next command part when `partial_parts` is a matching prefix.
+    ///
+    /// This powers dynamic completion by exposing the next segment after the
+    /// already-typed command prefix.
     pub(crate) fn try_get_next_part_after(&self, partial_parts: &ScriptParts<'_>) -> Option<&OsStr> {
         if self.parts.len() <= partial_parts.parts.len() 
             || !self.matches_prior(partial_parts) {
@@ -230,6 +263,9 @@ impl<'a> ScriptParts<'a> {
         }
     }
 
+    /// Joins command parts with spaces for display output.
+    ///
+    /// Intended for human-facing output such as `--list` and error messages.
     pub(crate) fn display(&self) -> OsString {
         self.parts.join(OsStr::new(" "))
     }

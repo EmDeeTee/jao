@@ -16,6 +16,12 @@ const CONFIG_FILE_LOCATION: &str = "config.toml";
 const CURRENT_CONFIG_VERSION: u32 = 1;
 
 /// Loads the user's config from disk, creating it with defaults if needed.
+///
+/// Behavior summary:
+///
+/// - reads `~/.jao/config.toml` when present
+/// - creates a default file when absent
+/// - normalizes persisted version to [`CURRENT_CONFIG_VERSION`]
 pub(crate) fn load_or_init() -> JaoResult<JaoConfig> {
     let mut config_file = match storage::load_from_storage(CONFIG_FILE_LOCATION)? {
         Some(config) => config,
@@ -42,6 +48,9 @@ pub(crate) fn load_or_init() -> JaoResult<JaoConfig> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct JaoConfig {
     /// Absolute normalized path to the trust manifest file.
+    ///
+    /// This path is interpreted relative to the storage root when configured as
+    /// a relative path in the on-disk config.
     #[cfg(feature = "trust-manifest")]
     pub(crate) trustfile: PathBuf,
 }
@@ -63,6 +72,8 @@ impl From<JaoConfigFile> for JaoConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct JaoConfigFile {
     /// Config file format version.
+    ///
+    /// Used for lightweight in-place normalization and forward compatibility.
     #[serde(default = "default_config_version")]
     pub(crate) version: u32,
 
@@ -71,7 +82,10 @@ pub(crate) struct JaoConfigFile {
     #[serde(default = "default_trustfile")]
     pub(crate) trustfile: PathBuf,
 
-    // Preserve unknown fields so extending config does not break older tooling.
+    /// Unknown keys preserved during read/write roundtrips.
+    ///
+    /// This avoids losing newer config fields when older builds rewrite the
+    /// file.
     #[serde(flatten)]
     pub(crate) extra: BTreeMap<String, toml::Value>,
 }

@@ -6,11 +6,20 @@ use std::process::{Command, Stdio};
 
 #[cfg(feature = "config")]
 use crate::config::JaoConfig;
+#[cfg(unix)]
+use crate::platform::unix::{is_executable, parse_shebang};
 #[cfg(feature = "trust-manifest")]
 use crate::trust::{ScriptTrustState, TrustedManifest};
 use crate::{JaoError, JaoResult, trust};
 
 #[cfg(feature = "trust-manifest")]
+/// Runs a script under trust-manifest policy.
+///
+/// Unknown or modified scripts require interactive confirmation unless stdin
+/// and stdout are non-terminal, in which case this returns an error.
+///
+/// On acceptance, this updates the persisted trust manifest before executing
+/// the script from its own directory.
 pub(crate) fn run_script_with_trust(script_path: impl AsRef<Path>, config: &JaoConfig, manifest: &mut TrustedManifest) -> JaoResult<()> {
     let canonical_path = std::fs::canonicalize(&script_path)?;
 
@@ -49,10 +58,16 @@ pub(crate) fn run_script_with_trust(script_path: impl AsRef<Path>, config: &JaoC
     execute_script(script_path)
 }
 
+/// Runs a script only when its current fingerprint matches `required_fingerprint`.
+///
+/// The required fingerprint must be a 64-character hexadecimal SHA-256 digest.
+///
+/// Fingerprint comparison uses the same canonical-path+contents hashing as
+/// trust-manifest records.
 pub(crate) fn run_script_with_fingerprint(script_path: impl AsRef<Path>, required_fingerprint: &OsStr) -> JaoResult<()> {
     let required_fingerprint = required_fingerprint
         .to_str()
-        .ok_or(JaoError::InvalidArguments("argument contains invalid UTF-8"))?;
+        .ok_or(JaoError::InvalidArguments("required fingerprint contains invalid UTF-8"))?;
 
     let required_fingerprint = normalize_required_fingerprint(required_fingerprint)?;
 
@@ -141,47 +156,4 @@ fn execute_script(script_path: impl AsRef<Path>) -> JaoResult<()> {
     } else {
         Err(JaoError::ScriptFailed { status })
     }
-}
-
-#[cfg(unix)]
-fn is_executable(path: &Path) -> JaoResult<bool> {
-    use std::os::unix::fs::PermissionsExt;
-
-    let metadata = std::fs::metadata(path)?;
-    Ok(metadata
-        .permissions()
-        .mode()
-        & 0o111
-        != 0)
-}
-
-#[cfg(unix)]
-fn parse_shebang(path: &Path) -> JaoResult<Option<(String, Vec<String>)>> {
-    use std::io::BufRead;
-
-    let file = std::fs::File::open(path)?;
-    let mut reader = std::io::BufReader::new(file);
-    let mut first_line = String::new();
-    reader.read_line(&mut first_line)?;
-
-    if !first_line.starts_with("#!") {
-        return Ok(None);
-    }
-
-    let shebang = first_line[2..].trim();
-    if shebang.is_empty() {
-        return Ok(None);
-    }
-
-    let mut parts = shebang.split_whitespace();
-    let Some(interpreter) = parts.next() else {
-        return Ok(None);
-    };
-
-    Ok(Some((
-        interpreter.to_string(),
-        parts
-            .map(ToString::to_string)
-            .collect(),
-    )))
 }

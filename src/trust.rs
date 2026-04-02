@@ -5,9 +5,9 @@
 //!
 //! The two core concepts are:
 //!
-//! - [`fingerprint::fingerprint_file`]: computes a stable SHA-256 digest from a script's
+//! - [`create_trust_record`]: computes a stable SHA-256 digest from a script's
 //!   canonical path and contents
-//! - [`models::TrustedManifest`]: stores the last trusted fingerprint per
+//! - [`TrustedManifest`]: stores the last trusted fingerprint per
 //!   canonical script path
 //!
 //! In normal CLI usage these details are mostly internal, but documenting them
@@ -25,6 +25,12 @@ use crate::{JaoResult, storage};
 
 /// The result of comparing a script's current fingerprint to the trust
 /// manifest.
+///
+/// This drives the interactive trust UX:
+///
+/// - `Trusted`: run immediately
+/// - `Unknown`: ask for trust in interactive mode
+/// - `Modified`: ask to re-trust in interactive mode
 #[cfg(feature = "trust-manifest")]
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ScriptTrustState {
@@ -125,6 +131,11 @@ pub(crate) fn create_trust_record(path: impl AsRef<Path>) -> JaoResult<(PathBuf,
     ))
 }
 
+/// Loads the trust manifest from storage, creating a default one when absent.
+///
+/// The manifest path is read from [`JaoConfig::trustfile`].
+/// When the file does not exist yet, an empty [`TrustedManifest`] is written
+/// to storage first and returned.
 pub(crate) fn load_or_init(config: &JaoConfig) -> JaoResult<TrustedManifest> {
     let trust_manifest = match storage::load_from_storage(&config.trustfile)? {
         Some(config) => config,
@@ -138,6 +149,16 @@ pub(crate) fn load_or_init(config: &JaoConfig) -> JaoResult<TrustedManifest> {
     Ok(trust_manifest)
 }
 
+/// Determines whether a script is currently trusted.
+///
+/// This computes the script's current trust record using
+/// [`create_trust_record`] and compares it against `manifest` by canonical path.
+///
+/// Returns:
+///
+/// - [`ScriptTrustState::Unknown`] when no entry exists
+/// - [`ScriptTrustState::Trusted`] when fingerprint matches exactly
+/// - [`ScriptTrustState::Modified`] when an entry exists but fingerprint differs
 pub(crate) fn determine_script_trust_state(script_path: impl AsRef<Path>, manifest: &TrustedManifest) -> JaoResult<ScriptTrustState> {
     let (canonical_path, record) = create_trust_record(script_path.as_ref())?;
 
@@ -153,6 +174,12 @@ pub(crate) fn determine_script_trust_state(script_path: impl AsRef<Path>, manife
     }
 }
 
+/// Writes or updates the trust record for `script_path` and persists the manifest.
+///
+/// This recomputes the current trust record, stores it under the script's
+/// canonical path key, and writes the updated `manifest` to `trustfile_path`.
+///
+/// Existing entries for the same canonical path are replaced.
 pub(crate) fn write_script_trust_record(
     script_path: impl AsRef<Path>,
     trustfile_path: impl AsRef<Path>,

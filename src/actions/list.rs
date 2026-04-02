@@ -8,6 +8,11 @@ use crate::trust::{self, TrustedManifest};
 use crate::{JaoResult, script_discovery};
 
 #[cfg(feature = "trust-manifest")]
+/// Lists discovered scripts with trust-state labels.
+///
+/// Output format: `<trust>\t<command>\t\t<resolved_path>`.
+///
+/// `trust` values map to [`crate::trust::ScriptTrustState`] display labels.
 pub(crate) fn list_scripts_with_trust_status(root: impl AsRef<Path>, manifest: &TrustedManifest) -> JaoResult<()> {
     let mut out = io::stdout().lock();
 
@@ -28,6 +33,11 @@ pub(crate) fn list_scripts_with_trust_status(root: impl AsRef<Path>, manifest: &
 }
 
 #[cfg(not(feature = "trust-manifest"))]
+/// Lists discovered scripts without trust-state labels.
+///
+/// Output format: `<command>\t\t<resolved_path>`.
+///
+/// This variant is compiled when trust-manifest support is disabled.
 pub(crate) fn list_scripts(root: impl AsRef<Path>) -> JaoResult<()> {
     let mut out = io::stdout().lock();
 

@@ -1,10 +1,15 @@
 use std::fs;
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
 use crate::{JaoError, JaoResult};
 
+/// Serializes and writes `contents` to the `~/.jao` storage area.
+///
+/// `file_path` can be relative to the storage root or an absolute path inside
+/// that root. Paths outside the storage root are rejected.
 pub(crate) fn write_to_storage<C>(file_path: impl AsRef<Path>, contents: &C) -> JaoResult<()>
 where
     C: Serialize,
@@ -15,6 +20,10 @@ where
     Ok(())
 }
 
+/// Loads and deserializes a value from the `~/.jao` storage area.
+///
+/// Returns `Ok(None)` when the resolved file does not exist. Paths outside the
+/// storage root are rejected.
 pub(crate) fn load_from_storage<C>(file_path: impl AsRef<Path>) -> JaoResult<Option<C>>
 where
     C: for<'a> Deserialize<'a>,
@@ -48,7 +57,22 @@ fn canonicalise_within(safe_root: impl AsRef<Path>, path_to_canonicalise: impl A
         canonical_root.join(path_to_canonicalise)
     };
 
-    let canonical_file_path = fs::canonicalize(&path_to_canonicalise)?;
+    let canonical_file_path = match fs::canonicalize(&path_to_canonicalise) {
+        Ok(canonical) => canonical,
+        Err(error) if error.kind() == ErrorKind::NotFound => {
+            let Some(parent) = path_to_canonicalise.parent() else {
+                return Err(JaoError::InvalidStoragePath { path: path_to_canonicalise });
+            };
+
+            let canonical_parent = fs::canonicalize(parent)?;
+            let Some(file_name) = path_to_canonicalise.file_name() else {
+                return Err(JaoError::InvalidStoragePath { path: path_to_canonicalise });
+            };
+
+            canonical_parent.join(file_name)
+        }
+        Err(error) => return Err(error.into()),
+    };
 
     if !canonical_file_path.starts_with(&canonical_root) {
         return Err(JaoError::InvalidStoragePath { path: path_to_canonicalise });
